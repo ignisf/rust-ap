@@ -9,8 +9,9 @@
 mod ap {
     use std::libc::{c_char, c_int, c_long, c_void};
     use std::mem::uninit;
-    use std::num::{FromStrRadix, One, Zero};
-    use std::cmp::Eq;
+    use std::num::{FromStrRadix, Zero};
+    use std::cmp::{Eq, Ord};
+    use std::ops::Add;
 
     type mpfr_prec_t = c_long;
     type mpfr_exp_t = c_long;
@@ -35,6 +36,7 @@ mod ap {
         fn mpfr_set_zero(x: mpfr_ptr, sign: c_int);
         fn mpfr_equal_p(op1: mpfr_srcptr, op2: mpfr_srcptr) -> c_int;
         fn mpfr_less_p(op1: mpfr_srcptr, op2: mpfr_srcptr) -> c_int;
+        fn mpfr_add(rop: mpfr_ptr, op1: mpfr_srcptr, op2: mpfr_srcptr, rnd: mpfr_rnd_t) -> c_int;
     }
 
     pub struct BigDecimal {
@@ -79,6 +81,43 @@ mod ap {
         }
     }
 
+    impl Add<BigDecimal, BigDecimal> for BigDecimal {
+        /**
+         * Return a new BigDecimal rounded towards the nearest number that
+         * consists of the sum of senf and rhs.
+         */
+        #[inline]
+        fn add(&self, rhs: &BigDecimal) -> BigDecimal {
+            unsafe {
+                let mut result = BigDecimal::new();
+                mpfr_add(&mut result.mpfr, &self.mpfr, &rhs.mpfr, 0);
+                result
+            }
+        }
+    }
+
+    impl Zero for BigDecimal {
+        /**
+         * Returns a BigDecimal that represents 0
+         */
+        fn zero() -> BigDecimal {
+            unsafe {
+                let mut result = BigDecimal::new();
+                mpfr_set_zero(&mut result.mpfr, 0);
+                result
+            }
+        }
+
+        /**
+         * Returns true if a BigDecimal is 0
+         */
+        fn is_zero(&self) -> bool {
+            let zero: BigDecimal = Zero::zero();
+            self == &zero
+        }
+    }
+
+
     impl FromStrRadix for BigDecimal {
         /**
          * Create a new BigDecimal from a string and a specified radix.
@@ -102,7 +141,7 @@ mod ap {
     #[cfg(test)]
     mod bigdecimal_tests {
         use super::BigDecimal;
-        use std::num::FromStrRadix;
+        use std::num::{FromStrRadix, Zero};
 
         #[test]
         fn check_if_zero_is_equal_to_zero() {
@@ -135,6 +174,33 @@ mod ap {
             let zero: BigDecimal = FromStrRadix::from_str_radix("0", 10).unwrap();
             let zero_again: BigDecimal = FromStrRadix::from_str_radix("0", 10).unwrap();
             assert!(zero < zero_again);
+        }
+
+        #[test]
+        fn test_addition() {
+            let one_point_one: BigDecimal = FromStrRadix::from_str_radix("1.1", 10).unwrap();
+            let one_point_nine: BigDecimal = FromStrRadix::from_str_radix("1.9", 10).unwrap();
+            let three: BigDecimal = FromStrRadix::from_str_radix("3", 10).unwrap();
+
+            assert!(one_point_one + one_point_nine == three);
+        }
+
+        #[test]
+        fn test_zero() {
+            let zero_from_str: BigDecimal = FromStrRadix::from_str_radix("0", 10).unwrap();
+            let one_point_nine: BigDecimal = FromStrRadix::from_str_radix("1.9", 10).unwrap();
+            let zero: BigDecimal = Zero::zero();
+
+            assert!(zero == zero_from_str);
+            assert!(zero != one_point_nine);
+        }
+
+        #[test]
+        fn test_is_zero() {
+            let zero_from_str: BigDecimal = FromStrRadix::from_str_radix("0", 10).unwrap();
+            let zero: BigDecimal = Zero::zero();
+            assert!(zero.is_zero());
+            assert!(zero_from_str.is_zero());
         }
     }
 }
