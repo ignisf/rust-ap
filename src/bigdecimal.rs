@@ -8,12 +8,14 @@
 #![feature(link_args)]
 
 mod ap {
-    use std::libc::{c_char, c_int, c_long, c_ulong, c_void};
+    use std::libc::{c_char, c_int, c_long, c_ulong, c_void, size_t};
     use std::mem::uninit;
     use std::num::{FromStrRadix, Zero};
     use std::cmp::{Eq, Ord};
     use std::ops::Add;
     use std::from_str::FromStr;
+    use std::fmt::{Formatter, Show, Result};
+    use std::c_str::CString;
 
     type mpfr_prec_t = c_long;
     type mpfr_exp_t = c_long;
@@ -41,6 +43,8 @@ mod ap {
         fn mpfr_add(rop: mpfr_ptr, op1: mpfr_srcptr, op2: mpfr_srcptr, rnd: mpfr_rnd_t) -> c_int;
         fn mpfr_set_si(rop: mpfr_ptr, op: c_long, rnd: mpfr_rnd_t) -> c_int;
         fn mpfr_set_ui(rop: mpfr_ptr, op: c_ulong, rnd: mpfr_rnd_t) -> c_int;
+        fn mpfr_get_prec(x: mpfr_srcptr) -> mpfr_prec_t;
+        fn mpfr_get_str(str: *c_char, expptr: *mpfr_exp_t, b: c_int, n: size_t, op: mpfr_srcptr, rnd: mpfr_rnd_t) -> *c_char;
     }
 
     pub struct BigDecimal {
@@ -54,6 +58,10 @@ mod ap {
                 mpfr_init(&mut mpfr);
                 BigDecimal { mpfr: mpfr }
             }
+        }
+
+        pub fn get_precision(&self) -> u64 {
+            unsafe { mpfr_get_prec(&self.mpfr) as u64 }
         }
     }
 
@@ -104,6 +112,7 @@ mod ap {
         /**
          * Returns a BigDecimal that represents 0
          */
+        #[inline]
         fn zero() -> BigDecimal {
             unsafe {
                 let mut result = BigDecimal::new();
@@ -115,6 +124,7 @@ mod ap {
         /**
          * Returns true if a BigDecimal is 0
          */
+        #[inline]
         fn is_zero(&self) -> bool {
             let zero: BigDecimal = Zero::zero();
             self == &zero
@@ -177,6 +187,19 @@ mod ap {
         }
     }
 
+    impl Show for BigDecimal {
+        fn fmt(&self, f: &mut Formatter) -> Result {
+            use std::ptr::null;
+            let exp: mpfr_exp_t = 0;
+            let result = unsafe {
+                let res_ptr = mpfr_get_str(null(), &exp, 10, 0, &self.mpfr, 0);
+                CString::new(res_ptr, true)
+            };
+            let string = result.as_str().unwrap();
+            write!(f.buf, "{}", [string.slice_to(exp as uint), ".", string.slice_from(exp as uint)].concat())
+        }
+    }
+
     #[cfg(test)]
     mod bigdecimal_tests {
         use super::BigDecimal;
@@ -188,7 +211,7 @@ mod ap {
             let zero: BigDecimal = FromStr::from_str("0").unwrap();
             let zero_again: BigDecimal = FromStr::from_str("0").unwrap();
 
-            assert!(zero == zero_again);
+            assert_eq!(zero, zero_again);
         }
 
         #[test]
@@ -197,7 +220,7 @@ mod ap {
             let zero: BigDecimal = Zero::zero();
             let one: BigDecimal = FromStr::from_str("1").unwrap();
 
-            assert!(zero == one);
+            assert_eq!(zero, one);
         }
 
         #[test]
@@ -213,6 +236,7 @@ mod ap {
         fn check_if_zero_is_not_more_than_zero() {
             let zero: BigDecimal = Zero::zero();
             let zero_again: BigDecimal = Zero::zero();
+
             assert!(zero < zero_again);
         }
 
@@ -222,7 +246,7 @@ mod ap {
             let one_point_nine: BigDecimal = FromStr::from_str("1.9").unwrap();
             let three: BigDecimal = FromStr::from_str("3").unwrap();
 
-            assert!(one_point_one + one_point_nine == three);
+            assert_eq!(one_point_one + one_point_nine, three);
         }
 
         #[test]
@@ -231,7 +255,7 @@ mod ap {
             let one_point_nine: BigDecimal = FromStr::from_str("1.9").unwrap();
             let zero: BigDecimal = Zero::zero();
 
-            assert!(zero == zero_from_str);
+            assert_eq!(zero, zero_from_str);
             assert!(zero != one_point_nine);
         }
 
@@ -247,21 +271,28 @@ mod ap {
         fn test_from_str() {
             let one_point_one_from_str_radix: BigDecimal = FromStrRadix::from_str_radix("1.1", 10).unwrap();
             let one_point_one_from_str: BigDecimal = FromStr::from_str("1.1").unwrap();
-            assert!(one_point_one_from_str == one_point_one_from_str_radix);
+            assert_eq!(one_point_one_from_str, one_point_one_from_str_radix);
         }
 
         #[test]
         fn test_from_i64() {
             let one_from_str: BigDecimal = FromStr::from_str("1").unwrap();
             let one_from_i64: BigDecimal = FromPrimitive::from_i64(1 as i64).unwrap();
-            assert!(one_from_i64 == one_from_str);
+            assert_eq!(one_from_i64, one_from_str);
         }
 
         #[test]
         fn test_from_u64() {
             let one_from_str: BigDecimal = FromStr::from_str("1").unwrap();
             let one_from_u64: BigDecimal = FromPrimitive::from_u64(1 as u64).unwrap();
-            assert!(one_from_u64 == one_from_str);
+            assert_eq!(one_from_u64, one_from_str);
+        }
+
+        #[test]
+        fn test_from_f64() {
+            let one_from_str: BigDecimal = FromStr::from_str("111.8").unwrap();
+            let one_from_f64: BigDecimal = FromPrimitive::from_f64(1.2f64).unwrap();
+            assert_eq!(one_from_f64, one_from_str);
         }
     }
 }
