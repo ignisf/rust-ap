@@ -5,6 +5,7 @@
 
 #![crate_type = "lib"]
 #![allow(non_camel_case_types)]
+#![feature(link_args)]
 
 mod ap {
     use std::libc::{c_char, c_int, c_long, c_void};
@@ -28,7 +29,7 @@ mod ap {
         _mpfr_d: *c_void
     }
 
-    #[link(name = "mpfr")]
+    #[link_args = "-lmpfr -lgmp"]
     extern {
         fn mpfr_init(x: mpfr_ptr);
         fn mpfr_clear(x: mpfr_ptr);
