@@ -13,6 +13,7 @@ mod ap {
     use std::num::{FromStrRadix, Zero};
     use std::cmp::{Eq, Ord};
     use std::ops::Add;
+    use std::from_str::FromStr;
 
     type mpfr_prec_t = c_long;
     type mpfr_exp_t = c_long;
@@ -139,15 +140,26 @@ mod ap {
         }
     }
 
+    impl FromStr for BigDecimal {
+        /**
+         * Create a BigDecimal from a string in base 10
+         */
+        #[inline]
+        fn from_str(str: &str) -> Option<BigDecimal> {
+            FromStrRadix::from_str_radix(str, 10)
+        }
+    }
+
     #[cfg(test)]
     mod bigdecimal_tests {
         use super::BigDecimal;
         use std::num::{FromStrRadix, Zero};
+        use std::from_str::FromStr;
 
         #[test]
         fn check_if_zero_is_equal_to_zero() {
-            let zero: BigDecimal = FromStrRadix::from_str_radix("0", 10).unwrap();
-            let zero_again: BigDecimal = FromStrRadix::from_str_radix("0", 10).unwrap();
+            let zero: BigDecimal = FromStr::from_str("0").unwrap();
+            let zero_again: BigDecimal = FromStr::from_str("0").unwrap();
 
             assert!(zero == zero_again);
         }
@@ -155,16 +167,16 @@ mod ap {
         #[test]
         #[should_fail]
         fn check_if_zero_is_not_equal_to_one() {
-            let zero: BigDecimal = FromStrRadix::from_str_radix("0", 10).unwrap();
-            let one: BigDecimal = FromStrRadix::from_str_radix("1", 10).unwrap();
+            let zero: BigDecimal = Zero::zero();
+            let one: BigDecimal = FromStr::from_str("1").unwrap();
 
             assert!(zero == one);
         }
 
         #[test]
         fn check_if_zero_is_less_than_one() {
-            let zero: BigDecimal = FromStrRadix::from_str_radix("0", 10).unwrap();
-            let one: BigDecimal = FromStrRadix::from_str_radix("1", 10).unwrap();
+            let zero: BigDecimal = Zero::zero();
+            let one: BigDecimal = FromStr::from_str("1").unwrap();
 
             assert!(zero < one);
         }
@@ -172,24 +184,24 @@ mod ap {
         #[test]
         #[should_fail]
         fn check_if_zero_is_not_more_than_zero() {
-            let zero: BigDecimal = FromStrRadix::from_str_radix("0", 10).unwrap();
-            let zero_again: BigDecimal = FromStrRadix::from_str_radix("0", 10).unwrap();
+            let zero: BigDecimal = Zero::zero();
+            let zero_again: BigDecimal = Zero::zero();
             assert!(zero < zero_again);
         }
 
         #[test]
         fn test_addition() {
-            let one_point_one: BigDecimal = FromStrRadix::from_str_radix("1.1", 10).unwrap();
-            let one_point_nine: BigDecimal = FromStrRadix::from_str_radix("1.9", 10).unwrap();
-            let three: BigDecimal = FromStrRadix::from_str_radix("3", 10).unwrap();
+            let one_point_one: BigDecimal = FromStr::from_str("1.1").unwrap();
+            let one_point_nine: BigDecimal = FromStr::from_str("1.9").unwrap();
+            let three: BigDecimal = FromStr::from_str("3").unwrap();
 
             assert!(one_point_one + one_point_nine == three);
         }
 
         #[test]
         fn test_zero() {
-            let zero_from_str: BigDecimal = FromStrRadix::from_str_radix("0", 10).unwrap();
-            let one_point_nine: BigDecimal = FromStrRadix::from_str_radix("1.9", 10).unwrap();
+            let zero_from_str: BigDecimal = FromStr::from_str("0").unwrap();
+            let one_point_nine: BigDecimal = FromStr::from_str("1.9").unwrap();
             let zero: BigDecimal = Zero::zero();
 
             assert!(zero == zero_from_str);
@@ -198,10 +210,19 @@ mod ap {
 
         #[test]
         fn test_is_zero() {
-            let zero_from_str: BigDecimal = FromStrRadix::from_str_radix("0", 10).unwrap();
+            let zero_from_str: BigDecimal = FromStr::from_str("0").unwrap();
             let zero: BigDecimal = Zero::zero();
             assert!(zero.is_zero());
             assert!(zero_from_str.is_zero());
+        }
+
+        #[test]
+        fn test_from_str() {
+            let zero_from_str_radix: BigDecimal = FromStrRadix::from_str_radix("0", 10).unwrap();
+            let zero_from_str: BigDecimal = FromStr::from_str("0").unwrap();
+            let zero: BigDecimal = Zero::zero();
+            assert!(zero_from_str == zero_from_str_radix);
+            assert!(zero_from_str == zero);
         }
     }
 }
