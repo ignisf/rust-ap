@@ -46,6 +46,8 @@ mod ap {
         fn mpfr_get_prec(x: mpfr_srcptr) -> mpfr_prec_t;
         fn mpfr_get_str(str: *c_char, expptr: *mpfr_exp_t, b: c_int, n: size_t, op: mpfr_srcptr, rnd: mpfr_rnd_t) -> *c_char;
         fn mpfr_neg(rop: mpfr_ptr, op: mpfr_srcptr, rnd: mpfr_rnd_t) -> c_int;
+        fn mpfr_fmod(r: mpfr_ptr, x: mpfr_srcptr, y: mpfr_srcptr, rnd: mpfr_rnd_t) -> c_int;
+
     }
 
     pub struct BigDecimal {
@@ -140,6 +142,16 @@ mod ap {
                 let mut negative = BigDecimal::new();
                 mpfr_neg(&mut negative.mpfr, &self.mpfr, 0);
                 negative
+            }
+        }
+    }
+
+    impl Rem<BigDecimal, BigDecimal> for BigDecimal {
+        fn rem(&self, rhs: &BigDecimal) -> BigDecimal {
+            unsafe {
+                let mut remainder = BigDecimal::new();
+                mpfr_fmod(&mut remainder.mpfr, &self.mpfr, &rhs.mpfr, 0);
+                remainder
             }
         }
     }
@@ -315,6 +327,15 @@ mod ap {
             let minus_one_from_str: BigDecimal = FromStr::from_str("-1").unwrap();
 
             assert_eq!(-one_from_str, minus_one_from_str);
+        }
+
+        #[test]
+        fn test_remainder() {
+            let three: BigDecimal = FromStr::from_str("3").unwrap();
+            let two: BigDecimal = FromStr::from_str("2").unwrap();
+            let one: BigDecimal = FromStr::from_str("1").unwrap();
+
+            assert_eq!(three % two, one);
         }
     }
 }
