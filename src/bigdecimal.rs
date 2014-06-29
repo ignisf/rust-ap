@@ -49,6 +49,7 @@ mod ap {
         fn mpfr_fmod(r: mpfr_ptr, x: mpfr_srcptr, y: mpfr_srcptr, rnd: mpfr_rnd_t) -> c_int;
         fn mpfr_sub(rop: mpfr_ptr, op1: mpfr_srcptr, op2: mpfr_srcptr, rnd: mpfr_rnd_t) -> c_int;
         fn mpfr_mul(rop: mpfr_ptr, op1: mpfr_srcptr, op2: mpfr_srcptr, rnd: mpfr_rnd_t) -> c_int;
+        fn mpfr_div(rop: mpfr_ptr, op1: mpfr_srcptr, op2: mpfr_srcptr, rnd: mpfr_rnd_t) -> c_int;
     }
 
     pub struct BigDecimal {
@@ -173,6 +174,16 @@ mod ap {
                 let mut product = BigDecimal::new();
                 mpfr_mul(&mut product.mpfr, &self.mpfr, &rhs.mpfr, 0);
                 product
+            }
+        }
+    }
+
+    impl Div<BigDecimal, BigDecimal> for BigDecimal {
+        fn div(&self, rhs: &BigDecimal) -> BigDecimal {
+            unsafe {
+                let mut quotient = BigDecimal::new();
+                mpfr_div(&mut quotient.mpfr, &self.mpfr, &rhs.mpfr, 0);
+                quotient
             }
         }
     }
@@ -390,6 +401,16 @@ mod ap {
             let one: BigDecimal = One::one();
 
             assert_eq!(three_point_three * one, three_point_three);
+        }
+
+
+        #[test]
+        fn test_division() {
+            let six_point_six: BigDecimal = FromStr::from_str("6.6").unwrap();
+            let two: BigDecimal = FromStr::from_str("2").unwrap();
+            let three_point_three: BigDecimal = FromStr::from_str("3.3").unwrap();
+
+            assert_eq!(six_point_six / two, three_point_three);
         }
     }
 }
