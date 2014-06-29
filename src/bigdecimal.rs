@@ -10,7 +10,7 @@
 mod ap {
     use std::libc::{c_char, c_int, c_long, c_ulong, c_void, size_t};
     use std::mem::uninit;
-    use std::num::{FromStrRadix, Zero};
+    use std::num::{FromStrRadix, Zero, One};
     use std::cmp::{Eq, Ord};
     use std::ops::Add;
     use std::from_str::FromStr;
@@ -48,6 +48,7 @@ mod ap {
         fn mpfr_neg(rop: mpfr_ptr, op: mpfr_srcptr, rnd: mpfr_rnd_t) -> c_int;
         fn mpfr_fmod(r: mpfr_ptr, x: mpfr_srcptr, y: mpfr_srcptr, rnd: mpfr_rnd_t) -> c_int;
         fn mpfr_sub(rop: mpfr_ptr, op1: mpfr_srcptr, op2: mpfr_srcptr, rnd: mpfr_rnd_t) -> c_int;
+        fn mpfr_mul(rop: mpfr_ptr, op1: mpfr_srcptr, op2: mpfr_srcptr, rnd: mpfr_rnd_t) -> c_int;
     }
 
     pub struct BigDecimal {
@@ -166,6 +167,22 @@ mod ap {
         }
     }
 
+    impl Mul<BigDecimal, BigDecimal> for BigDecimal {
+        fn mul(&self, rhs: &BigDecimal) -> BigDecimal {
+            unsafe {
+                let mut product = BigDecimal::new();
+                mpfr_mul(&mut product.mpfr, &self.mpfr, &rhs.mpfr, 0);
+                product
+            }
+        }
+    }
+
+    impl One for BigDecimal {
+        fn one() -> BigDecimal {
+            FromPrimitive::from_int(1).unwrap()
+        }
+    }
+
     impl FromPrimitive for BigDecimal {
         /**
          * Create a new BigDecimal from a i64
@@ -238,7 +255,7 @@ mod ap {
     #[cfg(test)]
     mod bigdecimal_tests {
         use super::BigDecimal;
-        use std::num::{FromStrRadix, Zero};
+        use std::num::{FromStrRadix, Zero, One};
         use std::from_str::FromStr;
 
         #[test]
@@ -356,6 +373,23 @@ mod ap {
 
             assert_eq!(three - two, one);
             assert_eq!(two - three, -one);
+        }
+
+        #[test]
+        fn test_multiplication() {
+            let three_point_three: BigDecimal = FromStr::from_str("3.3").unwrap();
+            let two: BigDecimal = FromStr::from_str("2").unwrap();
+            let six_point_six: BigDecimal = FromStr::from_str("6.6").unwrap();
+
+            assert_eq!(three_point_three * two, six_point_six);
+        }
+
+        #[test]
+        fn test_one() {
+            let three_point_three: BigDecimal = FromStr::from_str("3.3").unwrap();
+            let one: BigDecimal = One::one();
+
+            assert_eq!(three_point_three * one, three_point_three);
         }
     }
 }
