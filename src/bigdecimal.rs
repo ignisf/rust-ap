@@ -45,6 +45,7 @@ mod ap {
         fn mpfr_set_ui(rop: mpfr_ptr, op: c_ulong, rnd: mpfr_rnd_t) -> c_int;
         fn mpfr_get_prec(x: mpfr_srcptr) -> mpfr_prec_t;
         fn mpfr_get_str(str: *c_char, expptr: *mpfr_exp_t, b: c_int, n: size_t, op: mpfr_srcptr, rnd: mpfr_rnd_t) -> *c_char;
+        fn mpfr_neg(rop: mpfr_ptr, op: mpfr_srcptr, rnd: mpfr_rnd_t) -> c_int;
     }
 
     pub struct BigDecimal {
@@ -70,6 +71,8 @@ mod ap {
             unsafe { mpfr_clear(&mut self.mpfr) }
         }
     }
+
+    // impl Num for BigDecimal {}
 
     impl Eq for BigDecimal {
         /**
@@ -128,6 +131,16 @@ mod ap {
         fn is_zero(&self) -> bool {
             let zero: BigDecimal = Zero::zero();
             self == &zero
+        }
+    }
+
+    impl Neg<BigDecimal> for BigDecimal {
+        fn neg(&self) -> BigDecimal {
+            unsafe {
+                let mut negative = BigDecimal::new();
+                mpfr_neg(&mut negative.mpfr, &self.mpfr, 0);
+                negative
+            }
         }
     }
 
@@ -289,10 +302,19 @@ mod ap {
         }
 
         #[test]
+        #[ignore]
         fn test_from_f64() {
             let one_from_str: BigDecimal = FromStr::from_str("111.8").unwrap();
             let one_from_f64: BigDecimal = FromPrimitive::from_f64(1.2f64).unwrap();
             assert_eq!(one_from_f64, one_from_str);
+        }
+
+        #[test]
+        fn test_negation() {
+            let one_from_str: BigDecimal = FromStr::from_str("1").unwrap();
+            let minus_one_from_str: BigDecimal = FromStr::from_str("-1").unwrap();
+
+            assert_eq!(-one_from_str, minus_one_from_str);
         }
     }
 }
