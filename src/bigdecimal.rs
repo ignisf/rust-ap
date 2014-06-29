@@ -139,6 +139,7 @@ mod ap {
     }
 
     impl Neg<BigDecimal> for BigDecimal {
+        #[inline]
         fn neg(&self) -> BigDecimal {
             unsafe {
                 let mut negative = BigDecimal::new();
@@ -149,6 +150,7 @@ mod ap {
     }
 
     impl Rem<BigDecimal, BigDecimal> for BigDecimal {
+        #[inline]
         fn rem(&self, rhs: &BigDecimal) -> BigDecimal {
             unsafe {
                 let mut remainder = BigDecimal::new();
@@ -159,6 +161,7 @@ mod ap {
     }
 
     impl Sub<BigDecimal, BigDecimal> for BigDecimal {
+        #[inline]
         fn sub(&self, rhs: &BigDecimal) -> BigDecimal {
             unsafe {
                 let mut difference = BigDecimal::new();
@@ -169,6 +172,7 @@ mod ap {
     }
 
     impl Mul<BigDecimal, BigDecimal> for BigDecimal {
+        #[inline]
         fn mul(&self, rhs: &BigDecimal) -> BigDecimal {
             unsafe {
                 let mut product = BigDecimal::new();
@@ -178,7 +182,16 @@ mod ap {
         }
     }
 
+
+    impl One for BigDecimal {
+        #[inline]
+        fn one() -> BigDecimal {
+            FromPrimitive::from_int(1).unwrap()
+        }
+    }
+
     impl Div<BigDecimal, BigDecimal> for BigDecimal {
+        #[inline]
         fn div(&self, rhs: &BigDecimal) -> BigDecimal {
             unsafe {
                 let mut quotient = BigDecimal::new();
@@ -188,11 +201,7 @@ mod ap {
         }
     }
 
-    impl One for BigDecimal {
-        fn one() -> BigDecimal {
-            FromPrimitive::from_int(1).unwrap()
-        }
-    }
+    impl Num for BigDecimal {}
 
     impl FromPrimitive for BigDecimal {
         /**
