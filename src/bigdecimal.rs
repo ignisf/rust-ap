@@ -12,6 +12,7 @@ mod ap {
     use std::mem::uninit;
     use std::num::{FromStrRadix, Zero, One};
     use std::cmp::{Eq, Ord};
+    use std::cmp;
     use std::ops::Add;
     use std::from_str::FromStr;
     use std::fmt::{Formatter, Show, Result};
@@ -36,6 +37,7 @@ mod ap {
     #[link_args = "-lmpfr -lgmp"]
     extern {
         fn mpfr_init(x: mpfr_ptr);
+        fn mpfr_init2(x: mpfr_ptr, prec: mpfr_prec_t);
         fn mpfr_clear(x: mpfr_ptr);
         fn mpfr_init_set_str(x: mpfr_ptr, s: *c_char, base: c_int, rnd: mpfr_rnd_t) -> c_int;
         fn mpfr_set_zero(x: mpfr_ptr, sign: c_int);
@@ -58,10 +60,10 @@ mod ap {
     }
 
     impl BigDecimal {
-        pub fn new() -> BigDecimal {
+        pub fn new(prec: u64) -> BigDecimal {
             unsafe {
                 let mut mpfr: mpfr_struct = uninit();
-                mpfr_init(&mut mpfr);
+                mpfr_init2(&mut mpfr, prec as c_long);
                 BigDecimal { mpfr: mpfr }
             }
         }
@@ -117,9 +119,9 @@ mod ap {
         #[inline]
         fn add(&self, rhs: &BigDecimal) -> BigDecimal {
             unsafe {
-                let mut result = BigDecimal::new();
-                mpfr_add(&mut result.mpfr, &self.mpfr, &rhs.mpfr, 0);
-                result
+                let mut sum = BigDecimal::new(cmp::max(self.get_precision(), rhs.get_precision()));
+                mpfr_add(&mut sum.mpfr, &self.mpfr, &rhs.mpfr, 0);
+                sum
             }
         }
     }
@@ -131,7 +133,7 @@ mod ap {
         #[inline]
         fn zero() -> BigDecimal {
             unsafe {
-                let mut result = BigDecimal::new();
+                let mut result: BigDecimal = Default::default();
                 mpfr_set_zero(&mut result.mpfr, 0);
                 result
             }
@@ -151,7 +153,7 @@ mod ap {
         #[inline]
         fn neg(&self) -> BigDecimal {
             unsafe {
-                let mut negative = BigDecimal::new();
+                let mut negative = BigDecimal::new(self.get_precision());
                 mpfr_neg(&mut negative.mpfr, &self.mpfr, 0);
                 negative
             }
@@ -162,7 +164,7 @@ mod ap {
         #[inline]
         fn rem(&self, rhs: &BigDecimal) -> BigDecimal {
             unsafe {
-                let mut remainder = BigDecimal::new();
+                let mut remainder = BigDecimal::new(cmp::max(self.get_precision(), rhs.get_precision()));
                 mpfr_fmod(&mut remainder.mpfr, &self.mpfr, &rhs.mpfr, 0);
                 remainder
             }
@@ -173,7 +175,7 @@ mod ap {
         #[inline]
         fn sub(&self, rhs: &BigDecimal) -> BigDecimal {
             unsafe {
-                let mut difference = BigDecimal::new();
+                let mut difference = BigDecimal::new(cmp::max(self.get_precision(), rhs.get_precision()));
                 mpfr_sub(&mut difference.mpfr, &self.mpfr, &rhs.mpfr, 0);
                 difference
             }
@@ -184,7 +186,7 @@ mod ap {
         #[inline]
         fn mul(&self, rhs: &BigDecimal) -> BigDecimal {
             unsafe {
-                let mut product = BigDecimal::new();
+                let mut product = BigDecimal::new(cmp::max(self.get_precision(), rhs.get_precision()));
                 mpfr_mul(&mut product.mpfr, &self.mpfr, &rhs.mpfr, 0);
                 product
             }
@@ -203,7 +205,7 @@ mod ap {
         #[inline]
         fn div(&self, rhs: &BigDecimal) -> BigDecimal {
             unsafe {
-                let mut quotient = BigDecimal::new();
+                let mut quotient = BigDecimal::new(cmp::max(self.get_precision(), rhs.get_precision()));
                 mpfr_div(&mut quotient.mpfr, &self.mpfr, &rhs.mpfr, 0);
                 quotient
             }
@@ -219,7 +221,7 @@ mod ap {
         #[inline]
         fn from_i64(n: i64) -> Option<BigDecimal> {
             unsafe {
-                let mut result = BigDecimal::new();
+                let mut result: BigDecimal = Default::default();
                 mpfr_set_si(&mut result.mpfr, n, 0);
                 Some(result)
             }
@@ -231,7 +233,7 @@ mod ap {
         #[inline]
         fn from_u64(n: u64) -> Option<BigDecimal> {
             unsafe {
-                let mut result = BigDecimal::new();
+                let mut result: BigDecimal = Default::default();
                 mpfr_set_ui(&mut result.mpfr, n, 0);
                 Some(result)
             }
@@ -259,7 +261,7 @@ mod ap {
     }
 
     impl Default for BigDecimal {
-        pub fn default() -> BigDecimal {
+        fn default() -> BigDecimal {
             BigDecimal::with_default_precision()
         }
     }
