@@ -9,10 +9,10 @@
 
 mod ap {
     use std::libc::{c_char, c_int, c_long, c_ulong, c_void, size_t};
-    use std::mem::uninit;
+    use std::mem;
     use std::num::{FromStrRadix, Zero, One};
-    use std::cmp::{Eq, Ord};
     use std::cmp;
+    use std::cmp::{Eq, Ord};
     use std::ops::Add;
     use std::from_str::FromStr;
     use std::fmt::{Formatter, Show, Result};
@@ -31,28 +31,35 @@ mod ap {
         _mpfr_prec: mpfr_prec_t,
         _mpfr_sign: mpfr_sign_t,
         _mpfr_exp: mpfr_exp_t,
-        _mpfr_d: *c_void
+        _mpfr_d: *c_void,
     }
 
     #[link_args = "-lmpfr -lgmp"]
-    extern {
+    extern "C" {
         fn mpfr_init(x: mpfr_ptr);
         fn mpfr_init2(x: mpfr_ptr, prec: mpfr_prec_t);
         fn mpfr_clear(x: mpfr_ptr);
-        fn mpfr_init_set_str(x: mpfr_ptr, s: *c_char, base: c_int, rnd: mpfr_rnd_t) -> c_int;
+        fn mpfr_init_set_str(x: mpfr_ptr, s: *c_char, base: c_int,
+                             rnd: mpfr_rnd_t) -> c_int;
         fn mpfr_set_zero(x: mpfr_ptr, sign: c_int);
         fn mpfr_equal_p(op1: mpfr_srcptr, op2: mpfr_srcptr) -> c_int;
         fn mpfr_less_p(op1: mpfr_srcptr, op2: mpfr_srcptr) -> c_int;
-        fn mpfr_add(rop: mpfr_ptr, op1: mpfr_srcptr, op2: mpfr_srcptr, rnd: mpfr_rnd_t) -> c_int;
+        fn mpfr_add(rop: mpfr_ptr, op1: mpfr_srcptr, op2: mpfr_srcptr,
+                    rnd: mpfr_rnd_t) -> c_int;
         fn mpfr_set_si(rop: mpfr_ptr, op: c_long, rnd: mpfr_rnd_t) -> c_int;
         fn mpfr_set_ui(rop: mpfr_ptr, op: c_ulong, rnd: mpfr_rnd_t) -> c_int;
         fn mpfr_get_prec(x: mpfr_srcptr) -> mpfr_prec_t;
-        fn mpfr_get_str(str: *c_char, expptr: *mpfr_exp_t, b: c_int, n: size_t, op: mpfr_srcptr, rnd: mpfr_rnd_t) -> *c_char;
+        fn mpfr_get_str(str: *c_char, expptr: *mpfr_exp_t, b: c_int,
+                        n: size_t, op: mpfr_srcptr, rnd: mpfr_rnd_t) -> *c_char;
         fn mpfr_neg(rop: mpfr_ptr, op: mpfr_srcptr, rnd: mpfr_rnd_t) -> c_int;
-        fn mpfr_fmod(r: mpfr_ptr, x: mpfr_srcptr, y: mpfr_srcptr, rnd: mpfr_rnd_t) -> c_int;
-        fn mpfr_sub(rop: mpfr_ptr, op1: mpfr_srcptr, op2: mpfr_srcptr, rnd: mpfr_rnd_t) -> c_int;
-        fn mpfr_mul(rop: mpfr_ptr, op1: mpfr_srcptr, op2: mpfr_srcptr, rnd: mpfr_rnd_t) -> c_int;
-        fn mpfr_div(rop: mpfr_ptr, op1: mpfr_srcptr, op2: mpfr_srcptr, rnd: mpfr_rnd_t) -> c_int;
+        fn mpfr_fmod(r: mpfr_ptr, x: mpfr_srcptr, y: mpfr_srcptr,
+                     rnd: mpfr_rnd_t) -> c_int;
+        fn mpfr_sub(rop: mpfr_ptr, op1: mpfr_srcptr, op2: mpfr_srcptr,
+                    rnd: mpfr_rnd_t) -> c_int;
+        fn mpfr_mul(rop: mpfr_ptr, op1: mpfr_srcptr, op2: mpfr_srcptr,
+                    rnd: mpfr_rnd_t) -> c_int;
+        fn mpfr_div(rop: mpfr_ptr, op1: mpfr_srcptr, op2: mpfr_srcptr,
+                    rnd: mpfr_rnd_t) -> c_int;
     }
 
     pub struct BigDecimal {
@@ -62,17 +69,17 @@ mod ap {
     impl BigDecimal {
         pub fn new(prec: u64) -> BigDecimal {
             unsafe {
-                let mut mpfr: mpfr_struct = uninit();
+                let mut mpfr: mpfr_struct = mem::uninit();
                 mpfr_init2(&mut mpfr, prec as c_long);
-                BigDecimal { mpfr: mpfr }
+                BigDecimal{mpfr: mpfr,}
             }
         }
 
         pub fn with_default_precision() -> BigDecimal {
             unsafe {
-                let mut mpfr: mpfr_struct = uninit();
+                let mut mpfr: mpfr_struct = mem::uninit();
                 mpfr_init(&mut mpfr);
-                BigDecimal { mpfr: mpfr }
+                BigDecimal{mpfr: mpfr,}
             }
         }
 
@@ -82,12 +89,8 @@ mod ap {
     }
 
     impl Drop for BigDecimal {
-        fn drop(&mut self) {
-            unsafe { mpfr_clear(&mut self.mpfr) }
-        }
+        fn drop(&mut self) { unsafe { mpfr_clear(&mut self.mpfr) } }
     }
-
-    // impl Num for BigDecimal {}
 
     impl Eq for BigDecimal {
         /**
@@ -119,7 +122,9 @@ mod ap {
         #[inline]
         fn add(&self, rhs: &BigDecimal) -> BigDecimal {
             unsafe {
-                let mut sum = BigDecimal::new(cmp::max(self.get_precision(), rhs.get_precision()));
+                let mut sum =
+                    BigDecimal::new(cmp::max(self.get_precision(),
+                                             rhs.get_precision()));
                 mpfr_add(&mut sum.mpfr, &self.mpfr, &rhs.mpfr, 0);
                 sum
             }
@@ -164,7 +169,9 @@ mod ap {
         #[inline]
         fn rem(&self, rhs: &BigDecimal) -> BigDecimal {
             unsafe {
-                let mut remainder = BigDecimal::new(cmp::max(self.get_precision(), rhs.get_precision()));
+                let mut remainder =
+                    BigDecimal::new(cmp::max(self.get_precision(),
+                                             rhs.get_precision()));
                 mpfr_fmod(&mut remainder.mpfr, &self.mpfr, &rhs.mpfr, 0);
                 remainder
             }
@@ -175,7 +182,9 @@ mod ap {
         #[inline]
         fn sub(&self, rhs: &BigDecimal) -> BigDecimal {
             unsafe {
-                let mut difference = BigDecimal::new(cmp::max(self.get_precision(), rhs.get_precision()));
+                let mut difference =
+                    BigDecimal::new(cmp::max(self.get_precision(),
+                                             rhs.get_precision()));
                 mpfr_sub(&mut difference.mpfr, &self.mpfr, &rhs.mpfr, 0);
                 difference
             }
@@ -186,7 +195,9 @@ mod ap {
         #[inline]
         fn mul(&self, rhs: &BigDecimal) -> BigDecimal {
             unsafe {
-                let mut product = BigDecimal::new(cmp::max(self.get_precision(), rhs.get_precision()));
+                let mut product =
+                    BigDecimal::new(cmp::max(self.get_precision(),
+                                             rhs.get_precision()));
                 mpfr_mul(&mut product.mpfr, &self.mpfr, &rhs.mpfr, 0);
                 product
             }
@@ -196,23 +207,23 @@ mod ap {
 
     impl One for BigDecimal {
         #[inline]
-        fn one() -> BigDecimal {
-            FromPrimitive::from_int(1).unwrap()
-        }
+        fn one() -> BigDecimal { FromPrimitive::from_int(1).unwrap() }
     }
 
     impl Div<BigDecimal, BigDecimal> for BigDecimal {
         #[inline]
         fn div(&self, rhs: &BigDecimal) -> BigDecimal {
             unsafe {
-                let mut quotient = BigDecimal::new(cmp::max(self.get_precision(), rhs.get_precision()));
+                let mut quotient =
+                    BigDecimal::new(cmp::max(self.get_precision(),
+                                             rhs.get_precision()));
                 mpfr_div(&mut quotient.mpfr, &self.mpfr, &rhs.mpfr, 0);
                 quotient
             }
         }
     }
 
-    impl Num for BigDecimal {}
+    impl Num for BigDecimal { }
 
     impl FromPrimitive for BigDecimal {
         /**
@@ -246,24 +257,22 @@ mod ap {
          */
         #[inline]
         fn from_str_radix(str: &str, radix: uint) -> Option<BigDecimal> {
-            assert!(radix == 0 || (radix >= 2 && radix <= 62));
+            assert!(radix == 0 || ( radix >= 2 && radix <= 62 ));
             unsafe {
-                let mut mpfr: mpfr_struct = uninit();
-                let r = str.with_c_str(|s| mpfr_init_set_str(&mut mpfr, s, radix as i32, 0));
+                let mut mpfr: mpfr_struct = mem::uninit();
+                let r =
+                    str.with_c_str(|s|
+                                       mpfr_init_set_str(&mut mpfr, s,
+                                                         radix as i32, 0));
                 if r == 0 {
-                    Some(BigDecimal { mpfr: mpfr })
-                } else {
-                    mpfr_clear(&mut mpfr);
-                    None
-                }
+                    Some(BigDecimal{mpfr: mpfr,})
+                } else { mpfr_clear(&mut mpfr); None }
             }
         }
     }
 
     impl Default for BigDecimal {
-        fn default() -> BigDecimal {
-            BigDecimal::with_default_precision()
-        }
+        fn default() -> BigDecimal { BigDecimal::with_default_precision() }
     }
 
     impl FromStr for BigDecimal {
@@ -280,12 +289,16 @@ mod ap {
         fn fmt(&self, f: &mut Formatter) -> Result {
             use std::ptr::null;
             let exp: mpfr_exp_t = 0;
-            let result = unsafe {
-                let res_ptr = mpfr_get_str(null(), &exp, 10, 0, &self.mpfr, 0);
-                CString::new(res_ptr, true)
-            };
+            let result =
+                unsafe {
+                    let res_ptr =
+                        mpfr_get_str(null(), &exp, 10, 0, &self.mpfr, 0);
+                    CString::new(res_ptr, true)
+                };
             let string = result.as_str().unwrap();
-            write!(f.buf, "{}", [string.slice_to(exp as uint), ".", string.slice_from(exp as uint)].concat())
+            write!(f . buf , "{}" ,
+                   [ string . slice_to ( exp as uint ) , "." , string .
+                   slice_from ( exp as uint ) ] . concat ( ))
         }
     }
 
@@ -300,7 +313,7 @@ mod ap {
             let zero: BigDecimal = FromStr::from_str("0").unwrap();
             let zero_again: BigDecimal = FromStr::from_str("0").unwrap();
 
-            assert_eq!(zero, zero_again);
+            assert_eq!(zero , zero_again);
         }
 
         #[test]
@@ -309,7 +322,7 @@ mod ap {
             let zero: BigDecimal = Zero::zero();
             let one: BigDecimal = FromStr::from_str("1").unwrap();
 
-            assert_eq!(zero, one);
+            assert_eq!(zero , one);
         }
 
         #[test]
@@ -332,19 +345,21 @@ mod ap {
         #[test]
         fn test_addition() {
             let one_point_one: BigDecimal = FromStr::from_str("1.1").unwrap();
-            let one_point_nine: BigDecimal = FromStr::from_str("1.9").unwrap();
+            let one_point_nine: BigDecimal =
+                FromStr::from_str("1.9").unwrap();
             let three: BigDecimal = FromStr::from_str("3").unwrap();
 
-            assert_eq!(one_point_one + one_point_nine, three);
+            assert_eq!(one_point_one + one_point_nine , three);
         }
 
         #[test]
         fn test_zero() {
             let zero_from_str: BigDecimal = FromStr::from_str("0").unwrap();
-            let one_point_nine: BigDecimal = FromStr::from_str("1.9").unwrap();
+            let one_point_nine: BigDecimal =
+                FromStr::from_str("1.9").unwrap();
             let zero: BigDecimal = Zero::zero();
 
-            assert_eq!(zero, zero_from_str);
+            assert_eq!(zero , zero_from_str);
             assert!(zero != one_point_nine);
         }
 
@@ -352,45 +367,52 @@ mod ap {
         fn test_is_zero() {
             let zero_from_str: BigDecimal = FromStr::from_str("0").unwrap();
             let zero: BigDecimal = Zero::zero();
-            assert!(zero.is_zero());
-            assert!(zero_from_str.is_zero());
+            assert!(zero . is_zero ( ));
+            assert!(zero_from_str . is_zero ( ));
         }
 
         #[test]
         fn test_from_str() {
-            let one_point_one_from_str_radix: BigDecimal = FromStrRadix::from_str_radix("1.1", 10).unwrap();
-            let one_point_one_from_str: BigDecimal = FromStr::from_str("1.1").unwrap();
-            assert_eq!(one_point_one_from_str, one_point_one_from_str_radix);
+            let one_point_one_from_str_radix: BigDecimal =
+                FromStrRadix::from_str_radix("1.1", 10).unwrap();
+            let one_point_one_from_str: BigDecimal =
+                FromStr::from_str("1.1").unwrap();
+            assert_eq!(one_point_one_from_str , one_point_one_from_str_radix);
         }
 
         #[test]
         fn test_from_i64() {
             let one_from_str: BigDecimal = FromStr::from_str("1").unwrap();
-            let one_from_i64: BigDecimal = FromPrimitive::from_i64(1 as i64).unwrap();
-            assert_eq!(one_from_i64, one_from_str);
+            let one_from_i64: BigDecimal =
+                FromPrimitive::from_i64(1 as i64).unwrap();
+            assert_eq!(one_from_i64 , one_from_str);
         }
 
         #[test]
         fn test_from_u64() {
             let one_from_str: BigDecimal = FromStr::from_str("1").unwrap();
-            let one_from_u64: BigDecimal = FromPrimitive::from_u64(1 as u64).unwrap();
-            assert_eq!(one_from_u64, one_from_str);
+            let one_from_u64: BigDecimal =
+                FromPrimitive::from_u64(1 as u64).unwrap();
+            assert_eq!(one_from_u64 , one_from_str);
         }
 
         #[test]
         #[ignore]
         fn test_from_f64() {
-            let one_from_str: BigDecimal = FromStr::from_str("111.8").unwrap();
-            let one_from_f64: BigDecimal = FromPrimitive::from_f64(1.2f64).unwrap();
-            assert_eq!(one_from_f64, one_from_str);
+            let one_from_str: BigDecimal =
+                FromStr::from_str("111.8").unwrap();
+            let one_from_f64: BigDecimal =
+                FromPrimitive::from_f64(1.2f64).unwrap();
+            assert_eq!(one_from_f64 , one_from_str);
         }
 
         #[test]
         fn test_negation() {
             let one_from_str: BigDecimal = FromStr::from_str("1").unwrap();
-            let minus_one_from_str: BigDecimal = FromStr::from_str("-1").unwrap();
+            let minus_one_from_str: BigDecimal =
+                FromStr::from_str("-1").unwrap();
 
-            assert_eq!(-one_from_str, minus_one_from_str);
+            assert_eq!(- one_from_str , minus_one_from_str);
         }
 
         #[test]
@@ -399,7 +421,7 @@ mod ap {
             let two: BigDecimal = FromStr::from_str("2").unwrap();
             let one: BigDecimal = FromStr::from_str("1").unwrap();
 
-            assert_eq!(three % two, one);
+            assert_eq!(three % two , one);
         }
 
         #[test]
@@ -408,35 +430,37 @@ mod ap {
             let two: BigDecimal = FromStr::from_str("2").unwrap();
             let one: BigDecimal = FromStr::from_str("1").unwrap();
 
-            assert_eq!(three - two, one);
-            assert_eq!(two - three, -one);
+            assert_eq!(three - two , one);
+            assert_eq!(two - three , - one);
         }
 
         #[test]
         fn test_multiplication() {
-            let three_point_three: BigDecimal = FromStr::from_str("3.3").unwrap();
+            let three_point_three: BigDecimal =
+                FromStr::from_str("3.3").unwrap();
             let two: BigDecimal = FromStr::from_str("2").unwrap();
             let six_point_six: BigDecimal = FromStr::from_str("6.6").unwrap();
 
-            assert_eq!(three_point_three * two, six_point_six);
+            assert_eq!(three_point_three * two , six_point_six);
         }
 
         #[test]
         fn test_one() {
-            let three_point_three: BigDecimal = FromStr::from_str("3.3").unwrap();
+            let three_point_three: BigDecimal =
+                FromStr::from_str("3.3").unwrap();
             let one: BigDecimal = One::one();
 
-            assert_eq!(three_point_three * one, three_point_three);
+            assert_eq!(three_point_three * one , three_point_three);
         }
-
 
         #[test]
         fn test_division() {
             let six_point_six: BigDecimal = FromStr::from_str("6.6").unwrap();
             let two: BigDecimal = FromStr::from_str("2").unwrap();
-            let three_point_three: BigDecimal = FromStr::from_str("3.3").unwrap();
+            let three_point_three: BigDecimal =
+                FromStr::from_str("3.3").unwrap();
 
-            assert_eq!(six_point_six / two, three_point_three);
+            assert_eq!(six_point_six / two , three_point_three);
         }
     }
 }
