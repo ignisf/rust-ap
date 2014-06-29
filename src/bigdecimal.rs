@@ -16,6 +16,7 @@ mod ap {
     use std::from_str::FromStr;
     use std::fmt::{Formatter, Show, Result};
     use std::c_str::CString;
+    use std::default::Default;
 
     type mpfr_prec_t = c_long;
     type mpfr_exp_t = c_long;
@@ -58,6 +59,14 @@ mod ap {
 
     impl BigDecimal {
         pub fn new() -> BigDecimal {
+            unsafe {
+                let mut mpfr: mpfr_struct = uninit();
+                mpfr_init(&mut mpfr);
+                BigDecimal { mpfr: mpfr }
+            }
+        }
+
+        pub fn with_default_precision() -> BigDecimal {
             unsafe {
                 let mut mpfr: mpfr_struct = uninit();
                 mpfr_init(&mut mpfr);
@@ -246,6 +255,12 @@ mod ap {
                     None
                 }
             }
+        }
+    }
+
+    impl Default for BigDecimal {
+        pub fn default() -> BigDecimal {
+            BigDecimal::with_default_precision()
         }
     }
 
